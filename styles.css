@@ -21,6 +21,8 @@ html, body { height: 100%; margin: 0; }
 .sidebar-inner > .button { width: 100%; margin-bottom: 0.75rem; }
 .sidebar-inner h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #666; margin: 1rem 0 0.5rem; }
 #no-conversations { color: #666; font-size: 0.9rem; }
+.sidebar-note { color: #666; font-size: 0.9rem; }
+.browser-llm-toggle { display: block; font-size: 0.9rem; margin-top: 0.5rem; }
 
 /* Conversation list: Framework7 buttons, full-width, left-aligned. */
 .conversation-list { list-style: none; margin: 0; padding: 0; }
@@ -74,13 +76,13 @@ html, body { height: 100%; margin: 0; }
    these rules cover the parts Framework7 does not own (bubbles,
    textarea, sidebar text). The media query is a fallback so dark
    styling also applies if Framework7's class is ever absent. */
-html.dark .sidebar-subtitle, html.dark .sidebar-inner h2, html.dark #no-conversations, html.dark #thinking, html.dark .message-label { color: #aaa; }
+html.dark .sidebar-subtitle, html.dark .sidebar-inner h2, html.dark #no-conversations, html.dark #thinking, html.dark .message-label, html.dark .sidebar-note, html.dark .browser-llm-toggle { color: #aaa; }
 html.dark .conversation-item.is-active .conv-open { background: #1e3a5f; }
 html.dark .message-user { background: #1e3a5f; }
 html.dark .message-model { background: #2a2a2a; }
 html.dark #message-input { background: #1c1c1e; color: #fff; border-color: #444; }
 @media (prefers-color-scheme: dark) {
-  .sidebar-subtitle, .sidebar-inner h2, #no-conversations, #thinking, .message-label { color: #aaa; }
+  .sidebar-subtitle, .sidebar-inner h2, #no-conversations, #thinking, .message-label, .sidebar-note, .browser-llm-toggle { color: #aaa; }
   .conversation-item.is-active .conv-open { background: #1e3a5f; }
   .message-user { background: #1e3a5f; }
   .message-model { background: #2a2a2a; }

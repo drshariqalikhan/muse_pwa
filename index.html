@@ -32,6 +32,11 @@
           <h2>Conversations</h2>
           <ul id="conversation-list" class="conversation-list"></ul>
           <p id="no-conversations">No chats yet — start a new chat.</p>
+          <h2>Browser LLM (experiment)</h2>
+          <p class="sidebar-note">Runs a small LLM in this browser (WebGPU, no server, no API key). First load downloads the model and can take a few minutes; later loads use the cached model.</p>
+          <button class="button" id="browser-llm-load-btn">Load browser LLM</button>
+          <p id="browser-llm-status" class="sidebar-note">Not loaded — replies are placeholders.</p>
+          <label class="browser-llm-toggle"><input type="checkbox" id="browser-llm-enabled" disabled> Use browser LLM for replies</label>
         </div>
       </div>
     </div>
@@ -61,7 +66,7 @@
         <div id="message-list" class="message-list"></div>
         <div id="welcome">
           <h2>Welcome to muse_pwa</h2>
-          <p>This is Step 1: frontend scaffold only. Replies below are placeholders — no Supabase or Gemini yet (see BUILD.md Step 4–5).</p>
+          <p>This is Step 1: frontend scaffold only. Replies below are placeholders — no Supabase or Gemini yet (see BUILD.md Step 4–5). Side experiment: load a browser LLM from the menu to get real on-device replies instead of placeholders.</p>
           <p>Try an example:</p>
           <div class="example-row">
             <button class="button example-prompt">Explain context windows in one paragraph</button>

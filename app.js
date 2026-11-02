@@ -1,6 +1,7 @@
 // app.js — main UI wiring, Step 1 scaffold (in-memory only)
 import { handleSend, renderMessage } from "./chat.js";
 import { renderConversationList, createConversation } from "./history.js";
+import { loadBrowserLLM, setBrowserLLMEnabled } from "./webllm.js";
 
 // Framework7 shell: panel (sidebar menu), navbar, bottom toolbar,
 // system dark theme. darkMode:'auto' follows the device colour scheme,
@@ -140,6 +141,38 @@ document.querySelectorAll(".example-prompt").forEach((btn) => {
     inputEl.focus();
   });
 });
+
+// Browser LLM side experiment (webllm.js). Load is explicit and
+// one-off: nothing is downloaded and no model runs until the user
+// clicks this button, and replies only switch to the model once the
+// checkbox below is ticked (it is ticked automatically on a
+// successful load). Unticking returns to placeholder replies.
+const llmLoadBtn = document.getElementById("browser-llm-load-btn");
+const llmStatusEl = document.getElementById("browser-llm-status");
+const llmEnabledEl = document.getElementById("browser-llm-enabled");
+if (llmLoadBtn && llmStatusEl && llmEnabledEl) {
+  llmLoadBtn.addEventListener("click", async () => {
+    llmLoadBtn.disabled = true;
+    llmStatusEl.textContent = "Loading browser LLM… first load downloads the model, this can take a few minutes.";
+    try {
+      await loadBrowserLLM((text, progress) => {
+        llmStatusEl.textContent = text + (progress != null ? " — " + Math.round(progress * 100) + "%" : "");
+      });
+      llmStatusEl.textContent = "Browser LLM ready — replies now use the on-device model.";
+      llmEnabledEl.disabled = false;
+      llmEnabledEl.checked = true;
+      setBrowserLLMEnabled(true);
+      llmLoadBtn.textContent = "Browser LLM loaded";
+    } catch (e) {
+      llmStatusEl.textContent = "Browser LLM failed: " + (e && e.message ? e.message : "load failed");
+      llmLoadBtn.disabled = false;
+    }
+  });
+  llmEnabledEl.addEventListener("change", () => {
+    setBrowserLLMEnabled(llmEnabledEl.checked);
+    if (!llmEnabledEl.checked) llmStatusEl.textContent = "Browser LLM loaded, but replies are placeholders (unticked).";
+  });
+}
 
 document.getElementById("diagnostics-link").addEventListener("click", (e) => {
   e.preventDefault();
