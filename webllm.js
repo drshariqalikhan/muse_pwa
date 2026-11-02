@@ -19,6 +19,35 @@
 
 export const BROWSER_LLM_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
 
+// Model selector (added 2 Nov 2026 after the Llama 1B model kept
+// inventing defaults in PICO JSON). All three IDs are from WebLLM's
+// prebuilt model list, q4f32_1 quantisation (no shader-f16 needed).
+// - Llama 3.2 1B: current default, ~1.1 GB VRAM, smallest/fastest.
+// - Qwen 2.5 1.5B (Alibaba): similar size to Llama 1B, often
+//   stronger at instruction-following / JSON.
+// - Hermes 3 8B (Nous Research, Llama 3.1 8B base): much stronger
+//   instruction-following, but a ~5 GB download and ~5-6 GB VRAM —
+//   only for a strong desktop GPU, and a long first load.
+export const BROWSER_LLM_MODELS = [
+  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", label: "Llama 3.2 1B (small, fast)" },
+  { id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", label: "Qwen 2.5 1.5B (Alibaba)" },
+  { id: "Hermes-3-Llama-3.1-8B-q4f32_1-MLC", label: "Hermes 3 8B (Nous Research, large)" },
+];
+
+let selectedModelId = BROWSER_LLM_MODEL;
+
+export function getBrowserLLMModel() {
+  return selectedModelId;
+}
+
+export function setBrowserLLMModel(id) {
+  if (BROWSER_LLM_MODELS.some((m) => m.id === id)) {
+    selectedModelId = id;
+    return true;
+  }
+  return false;
+}
+
 // PICO JSON schema for the PICO mode below. Fixed fields only:
 // population, intervention, comparison, outcome, plus two fields
 // that carry the incomplete case inside the JSON itself, so the
@@ -51,6 +80,13 @@ const PICO_SYSTEM_PROMPT =
   "with a comparative phrase such as compared with, versus, vs, placebo, or control, or " +
   "names another treatment as the thing being compared against. NEVER copy the question " +
   "wording, or a question sentence, into comparison. A question sentence is not a comparator. " +
+  "NEVER default comparison to placebo. Placebo is only the comparison if the user actually " +
+  "says placebo. " +
+  "Population rule (defaults): NEVER default population to adults, or to people with the " +
+  "outcome (for example, adults with nausea for a nausea question). Population must " +
+  "describe who the patients actually are as stated in the question — age, condition, " +
+  "setting — and if the question states no such description, population is null, even " +
+  "if that feels incomplete. A symptom alone is an outcome, not a population. " +
   "Population rule: population is null if the current question does not state who the " +
   "patients are, even if an earlier question in the history mentioned a population. " +
   "Clarification rule: clarification_question must be a NEW question asking for missing " +
@@ -113,14 +149,14 @@ export async function loadBrowserLLM(onProgress) {
       // model weights are cached in the browser, so a reload is
       // much faster than the first download.
       try {
-        await engine.reload(BROWSER_LLM_MODEL, { initProgressCallback: progressCallback });
+        await engine.reload(selectedModelId, { initProgressCallback: progressCallback });
         return engine;
       } catch (reloadError) {
         engine = null;
         void reloadError;
       }
     }
-    engine = await webllm.CreateMLCEngine(BROWSER_LLM_MODEL, {
+    engine = await webllm.CreateMLCEngine(selectedModelId, {
       initProgressCallback: progressCallback,
     });
     return engine;
@@ -202,6 +238,19 @@ export async function chatWithBrowserLLM(text, priorHistory) {
       parsed.comparison = null;
     }
   }
+  // 1b. No default inventions, enforced from the user's own words
+  // (seen 2 Nov 2026: "will ondansetron reduce nausea" came back
+  // with population "adults with nausea" and comparison "placebo",
+  // neither of which was stated). A comparator only counts if the
+  // user actually used a comparative phrase or named placebo/control
+  // or another treatment as the comparator. A population only counts
+  // if the user actually described people (patient, adult, child,
+  // men/women, an age, elderly, pregnant, etc.); a symptom alone
+  // does not describe a population.
+  const hasComparatorPhrase = /compared|versus|\bvs\b|placebo|\bcontrol\b|instead of/i.test(text);
+  if (!hasComparatorPhrase) parsed.comparison = null;
+  const hasPeopleDescription = /patient|people|adult|child|men\b|women\b|elderly|pregnant|\d+\s*(yr|years?|yo)\b|\bold\b/i.test(text);
+  if (!hasPeopleDescription) parsed.population = null;
   // 2. missing_fields must exactly match the null fields.
   const missing = picoFields.filter((f) => parsed[f] == null || parsed[f] === "");
   picoFields.forEach((f) => {

@@ -34,6 +34,13 @@
           <p id="no-conversations">No chats yet — start a new chat.</p>
           <h2>Browser LLM (experiment)</h2>
           <p class="sidebar-note">Runs a small LLM in this browser (WebGPU, no server, no API key). First load downloads the model and can take a few minutes; later loads use the cached model.</p>
+          <label class="browser-llm-toggle" for="browser-llm-model">Model</label>
+          <select id="browser-llm-model">
+            <option value="Llama-3.2-1B-Instruct-q4f32_1-MLC">Llama 3.2 1B (small, fast)</option>
+            <option value="Qwen2.5-1.5B-Instruct-q4f32_1-MLC">Qwen 2.5 1.5B (Alibaba)</option>
+            <option value="Hermes-3-Llama-3.1-8B-q4f32_1-MLC">Hermes 3 8B (Nous Research, large)</option>
+          </select>
+          <p class="sidebar-note">Hermes 3 8B is a ~5 GB download and needs a strong desktop GPU. Qwen 1.5B is similar in size to Llama 1B. Changing the model takes effect when you next click Load / Reload.</p>
           <button class="button" id="browser-llm-load-btn">Load browser LLM</button>
           <p id="browser-llm-status" class="sidebar-note">Not loaded — replies are placeholders.</p>
           <label class="browser-llm-toggle"><input type="checkbox" id="browser-llm-enabled" disabled> Use browser LLM for replies</label>

@@ -1,7 +1,7 @@
 // app.js — main UI wiring, Step 1 scaffold (in-memory only)
 import { handleSend, renderMessage, shouldPromptNewChat } from "./chat.js";
 import { renderConversationList, createConversation } from "./history.js";
-import { loadBrowserLLM, setBrowserLLMEnabled, setBrowserLLMPicoMode } from "./webllm.js";
+import { loadBrowserLLM, setBrowserLLMEnabled, setBrowserLLMPicoMode, setBrowserLLMModel, isBrowserLLMReady } from "./webllm.js";
 
 // Framework7 shell: panel (sidebar menu), navbar, bottom toolbar,
 // system dark theme. darkMode:'auto' follows the device colour scheme,
@@ -193,6 +193,14 @@ const llmLoadBtn = document.getElementById("browser-llm-load-btn");
 const llmStatusEl = document.getElementById("browser-llm-status");
 const llmEnabledEl = document.getElementById("browser-llm-enabled");
 const llmPicoEl = document.getElementById("browser-llm-pico");
+const llmModelEl = document.getElementById("browser-llm-model");
+if (llmModelEl) {
+  llmModelEl.addEventListener("change", () => {
+    if (setBrowserLLMModel(llmModelEl.value) && isBrowserLLMReady() && llmStatusEl) {
+      llmStatusEl.textContent = "Model changed to " + llmModelEl.value + " — click Reload browser LLM to load it.";
+    }
+  });
+}
 if (llmLoadBtn && llmStatusEl && llmEnabledEl) {
   llmLoadBtn.addEventListener("click", async () => {
     llmLoadBtn.disabled = true;
