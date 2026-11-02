@@ -71,6 +71,36 @@ export const PICO_SCHEMA = {
   clarification_question: "string|null",
 };
 
+// Proper JSON Schema for WebLLM's schema-constrained decoding
+// (added 2 Nov 2026 for the constrained-JSON Gemma test). Passed as
+// response_format { type: "json_object", schema: JSON.stringify(...) }
+// in PICO mode only, so the engine masks any token that would break
+// the shape — the reply must be a JSON object with exactly these
+// six keys, with null allowed for any unstated PICO component.
+// This guarantees shape, not truth: a model can still emit an
+// invented string value, which is why the code validation below
+// (no-defaults, missing_fields, clarification) still runs.
+export const PICO_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    population: { type: ["string", "null"] },
+    intervention: { type: ["string", "null"] },
+    comparison: { type: ["string", "null"] },
+    outcome: { type: ["string", "null"] },
+    missing_fields: { type: "array", items: { type: "string" } },
+    clarification_question: { type: ["string", "null"] },
+  },
+  required: [
+    "population",
+    "intervention",
+    "comparison",
+    "outcome",
+    "missing_fields",
+    "clarification_question",
+  ],
+  additionalProperties: false,
+};
+
 const PICO_SYSTEM_PROMPT =
   "You are a PICO parser for evidence-based medicine. You do NOT give medical advice " +
   "and you do NOT answer the clinical question. You only parse the user's question into " +
@@ -194,7 +224,7 @@ export async function chatWithBrowserLLM(text, priorHistory) {
     : [];
   let reply;
   try {
-    reply = await engine.chat.completions.create({
+    const request = {
       messages: [
         {
           role: "system",
@@ -203,7 +233,29 @@ export async function chatWithBrowserLLM(text, priorHistory) {
         ...historyMessages,
         { role: "user", content: text },
       ],
-    });
+    };
+    // PICO mode only: schema-constrained JSON. In normal chat this
+    // is deliberately NOT passed, so normal replies stay prose.
+    if (picoMode) {
+      request.response_format = {
+        type: "json_object",
+        schema: JSON.stringify(PICO_JSON_SCHEMA),
+      };
+    }
+    try {
+      reply = await engine.chat.completions.create(request);
+    } catch (schemaError) {
+      // If this WebLLM build rejects the schema form, fall back to
+      // the previous prompt-only path rather than failing the whole
+      // reply — and let the caller see the (prompt-only) result, so
+      // the fallback is visible in testing instead of hidden.
+      if (picoMode && /response_format|schema|grammar|invalid/i.test(schemaError.message || "")) {
+        delete request.response_format;
+        reply = await engine.chat.completions.create(request);
+      } else {
+        throw schemaError;
+      }
+    }
   } catch (e) {
     // A disposed/unloaded engine must not stay stuck as "ready":
     // clear it so the next Load click creates a fresh engine
