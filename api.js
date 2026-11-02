@@ -10,14 +10,17 @@ export async function listConversations() {
   return [];
 }
 
-export async function sendChatMessage(conversationId, message, priorHistory) {
+export async function sendChatMessage(conversationId, message, priorHistory, onChunk) {
   // SIDE EXPERIMENT (webllm.js): if a browser LLM is loaded and the
   // user has enabled it, replies come from that on-device model.
   // This is not the planned Step 4–5 backend, and it never runs
   // unless the user loads the model and ticks the checkbox.
+  // onChunk, when given, receives streamed partial replies so the
+  // UI can show tokens as they arrive instead of waiting for the
+  // whole reply (2 Nov 2026 speed fix).
   if (isBrowserLLMActive()) {
     try {
-      const reply = await chatWithBrowserLLM(message, priorHistory);
+      const reply = await chatWithBrowserLLM(message, priorHistory, onChunk);
       return {
         conversation_id: conversationId,
         reply: reply,

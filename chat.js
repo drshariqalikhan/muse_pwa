@@ -81,8 +81,30 @@ export async function handleSend(state, listEl, thinkingEl, sendBtn, inputEl) {
     // is NOT in priorHistory; webllm.js appends it after history.
     const priorHistory = Array.isArray(state.messages) ? [...state.messages] : [];
     state.messages.push({ role: "user", content: text });
-    const result = await sendChatMessage(state.currentConversationId, text, priorHistory);
-    renderMessage(listEl, "model", result.reply);
+    // Streaming (2 Nov 2026 speed fix): if the browser LLM streams
+    // partial replies, show them live in one bubble instead of
+    // waiting for the full reply, then replace its content with
+    // the final validated reply (PICO validation runs at the end).
+    // Placeholders and errors never stream, so they still render
+    // as a single bubble below.
+    let streamingBubble = null;
+    let streamingCodeEl = null;
+    const onChunk = (partial) => {
+      if (!streamingBubble) {
+        streamingBubble = renderMessage(listEl, "model", partial);
+        streamingCodeEl = streamingBubble.querySelector("code");
+        thinkingEl.classList.add("is-hidden");
+      } else if (streamingCodeEl) {
+        streamingCodeEl.textContent = partial;
+      }
+      scrollToLatest(listEl, true);
+    };
+    const result = await sendChatMessage(state.currentConversationId, text, priorHistory, onChunk);
+    if (streamingBubble && streamingCodeEl) {
+      streamingCodeEl.textContent = result.reply;
+    } else {
+      renderMessage(listEl, "model", result.reply);
+    }
     state.messages.push({ role: "model", content: result.reply });
     scrollToLatest(listEl, true);
   } catch (e) {

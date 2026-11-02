@@ -17,7 +17,9 @@
 // secure context (localhost or https) and a WebGPU-capable browser
 // (Chrome/Edge on desktop is the safe bet; Safari support varies).
 
-export const BROWSER_LLM_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+// Default model, changed 2 Nov 2026 at Shariq's decision to work
+// with Gemma: Gemma 2 2B is now the default, not Llama 1B.
+export const BROWSER_LLM_MODEL = "gemma-2-2b-it-q4f32_1-MLC";
 
 // Model selector (added 2 Nov 2026 after the Llama 1B model kept
 // inventing defaults in PICO JSON). All three IDs are from WebLLM's
@@ -101,44 +103,26 @@ export const PICO_JSON_SCHEMA = {
   additionalProperties: false,
 };
 
+// Shortened 2 Nov 2026 for speed: the previous prompt was ~450
+// words, and every word is re-processed (prefill) on every turn,
+// which is a large share of the ~60-170s reply times seen with
+// Qwen/Gemma. This version keeps only the rules the code cannot
+// enforce itself; clarification wording and confirmed-field
+// preservation are now enforced in code below, not by the prompt.
 const PICO_SYSTEM_PROMPT =
-  "You are a PICO parser for evidence-based medicine. You do NOT give medical advice " +
-  "and you do NOT answer the clinical question. You only parse the user's question into " +
-  "PICO components. Output ONLY valid JSON, no other text and no markdown fences, " +
-  "matching exactly this schema: " +
+  "You are a PICO parser, not a medical advisor. Do NOT answer the clinical question. " +
+  "Parse only what is stated into JSON matching exactly this schema, no other text, no fences: " +
   '{"population": string|null, "intervention": string|null, "comparison": string|null, ' +
   '"outcome": string|null, "missing_fields": [string], "clarification_question": string|null}. ' +
-  "Rules: use only information stated in the question; do not infer a diagnosis, comparator, " +
-  "dose, or outcome that is not stated. Use null for any PICO component not stated. " +
-  "List every missing required component (population, intervention, comparison, outcome) " +
-  "in missing_fields. If any component is missing, set clarification_question to a single " +
-  "question asking for the most important missing information. If nothing is missing, " +
-  "clarification_question is null. " +
-  "Comparison rule: comparison is null unless the question explicitly names a comparator " +
-  "with a comparative phrase such as compared with, versus, vs, placebo, or control, or " +
-  "names another treatment as the thing being compared against. NEVER copy the question " +
-  "wording, or a question sentence, into comparison. A question sentence is not a comparator. " +
-  "NEVER default comparison to placebo. Placebo is only the comparison if the user actually " +
-  "says placebo. " +
-  "Population rule (defaults): NEVER default population to adults, or to people with the " +
-  "outcome (for example, adults with nausea for a nausea question). Population must " +
-  "describe who the patients actually are as stated in the question — age, condition, " +
-  "setting — and if the question states no such description, population is null, even " +
-  "if that feels incomplete. A symptom alone is an outcome, not a population. " +
-  "Population rule: population is null if the current question does not state who the " +
-  "patients are, even if an earlier question in the history mentioned a population. " +
-  "Clarification rule: clarification_question must be a NEW question asking for missing " +
-  "information. It must NEVER restate or repeat the user's question. " +
-  "New-topic rule: a new question about a different intervention or outcome starts a NEW " +
-  "PICO. Do not carry population, intervention, comparison, or outcome from an earlier, " +
-  "unrelated question in the history into the new PICO, unless the user message is clearly " +
-  "answering a clarification question (for example, just a comparator name) or explicitly " +
-  "says same patient or same population. " +
-  "If the conversation history contains a previous PICO JSON and the user is supplying " +
-  "missing information, update that JSON with the new information and keep the previously " +
-  "stated fields, instead of starting over. " +
-  "Example input: In adults with atrial fibrillation, does apixaban compared with warfarin reduce stroke? " +
-  'Example output: {"population": "adults with atrial fibrillation", "intervention": "apixaban", ' +
+  "Use null for any component not stated; never infer a diagnosis, comparator, dose, or outcome. " +
+  "Never default population to adults or to people with the outcome; a symptom alone is an outcome, not a population. " +
+  "Never default comparison to placebo; comparison is null unless a comparator is explicitly named (compared with, versus, vs, placebo, control, or another treatment). " +
+  "Never copy question wording into comparison. " +
+  "If the user explicitly says there is no comparator (nothing, none, no comparison), set comparison to \"none\", not null. " +
+  "If history contains a previous PICO JSON and the user is supplying missing information, update that JSON and keep previously stated fields. " +
+  "A new question about a different intervention or outcome starts a NEW PICO; do not carry fields from an unrelated earlier question. " +
+  "Example: In adults with atrial fibrillation, does apixaban compared with warfarin reduce stroke? " +
+  '-> {"population": "adults with atrial fibrillation", "intervention": "apixaban", ' +
   '"comparison": "warfarin", "outcome": "stroke", "missing_fields": [], "clarification_question": null}';
 
 let engine = null;
@@ -214,10 +198,16 @@ export async function loadBrowserLLM(onProgress) {
 // appended after the history, never duplicated from it.
 const MAX_PRIOR_MESSAGES = 10;
 
-export async function chatWithBrowserLLM(text, priorHistory) {
+export async function chatWithBrowserLLM(text, priorHistory, onChunk) {
   if (!engine) throw new Error("Browser LLM is not loaded yet");
+  // Faster: PICO history capped to 6 prior messages (3 exchanges)
+  // instead of 10. The last model message already carries the full
+  // previous PICO JSON, so confirmed fields are not lost by the cap
+  // — and the code preservation below restores them explicitly.
+  // Normal chat keeps the full 10.
+  const historyLimit = picoMode ? 6 : MAX_PRIOR_MESSAGES;
   const historyMessages = Array.isArray(priorHistory)
-    ? priorHistory.slice(-MAX_PRIOR_MESSAGES).map((m) => ({
+    ? priorHistory.slice(-historyLimit).map((m) => ({
         role: m.role === "model" ? "assistant" : "user",
         content: m.content,
       }))
@@ -242,8 +232,36 @@ export async function chatWithBrowserLLM(text, priorHistory) {
         schema: JSON.stringify(PICO_JSON_SCHEMA),
       };
     }
+    // Faster (perceived): stream tokens as they arrive, so the
+    // user sees output in the first seconds instead of waiting for
+    // the whole ~60-170s reply. The streamed text is raw model
+    // output; the validated PICO JSON below still replaces it at
+    // the end. If streaming fails, fall back to non-streaming.
+    const streamRequest = async (req) => {
+      if (typeof onChunk !== "function") {
+        return engine.chat.completions.create(req);
+      }
+      try {
+        const stream = await engine.chat.completions.create({ ...req, stream: true });
+        let accumulated = "";
+        for await (const chunk of stream) {
+          const delta = chunk && chunk.choices && chunk.choices[0] && chunk.choices[0].delta
+            ? chunk.choices[0].delta.content || ""
+            : "";
+          if (delta) {
+            accumulated += delta;
+            onChunk(accumulated);
+          }
+        }
+        if (!accumulated) return engine.chat.completions.create(req);
+        return { choices: [{ message: { content: accumulated } }] };
+      } catch (streamError) {
+        void streamError;
+        return engine.chat.completions.create(req);
+      }
+    };
     try {
-      reply = await engine.chat.completions.create(request);
+      reply = await streamRequest(request);
     } catch (schemaError) {
       // If this WebLLM build rejects the schema form, fall back to
       // the previous prompt-only path rather than failing the whole
@@ -251,7 +269,7 @@ export async function chatWithBrowserLLM(text, priorHistory) {
       // the fallback is visible in testing instead of hidden.
       if (picoMode && /response_format|schema|grammar|invalid/i.test(schemaError.message || "")) {
         delete request.response_format;
-        reply = await engine.chat.completions.create(request);
+        reply = await streamRequest(request);
       } else {
         throw schemaError;
       }
@@ -311,6 +329,47 @@ export async function chatWithBrowserLLM(text, priorHistory) {
   if (!hasComparatorPhrase) parsed.comparison = null;
   const hasPeopleDescription = /patient|people|adult|child|men\b|women\b|elderly|pregnant|\d+\s*(yr|years?|yo)\b|\bold\b/i.test(text);
   if (!hasPeopleDescription) parsed.population = null;
+  // 1c. Confirmed-field preservation (the loop fix, 2 Nov 2026):
+  // Qwen dropped "adults" and Gemma dropped "elderly" the moment
+  // the user answered a different field ("sunlight", "nothing"),
+  // because each reply was validated in isolation. Restore a
+  // previously confirmed field when the new reply drops it to
+  // null, unless the current message looks like a new question
+  // (then it is a new PICO and old fields must NOT leak in — that
+  // case is covered by the new-chat prompt in chat.js). A new
+  // non-null value always wins over the old one (refinements
+  // like cancer -> skin cancer, sunlight -> sunlight tanning).
+  const looksLikeNewQuestion = /^(do|does|will|can|is|are|should)\b/i.test(text.trim()) ||
+    (text.includes("?") && text.split(/\s+/).length >= 4);
+  if (!looksLikeNewQuestion && Array.isArray(priorHistory)) {
+    let priorPico = null;
+    for (let i = priorHistory.length - 1; i >= 0; i--) {
+      const msg = priorHistory[i];
+      if (!msg || msg.role !== "model" || typeof msg.content !== "string") continue;
+      const s = msg.content.indexOf("{");
+      const e = msg.content.lastIndexOf("}");
+      if (s < 0 || e <= s) continue;
+      try {
+        const candidate = JSON.parse(msg.content.slice(s, e + 1));
+        if (candidate && picoFields.every((f) => f in candidate)) { priorPico = candidate; break; }
+      } catch (err) { void err; }
+    }
+    if (priorPico) {
+      picoFields.forEach((f) => {
+        if ((parsed[f] == null || parsed[f] === "") && priorPico[f] != null && priorPico[f] !== "") {
+          parsed[f] = priorPico[f];
+        }
+      });
+    }
+  }
+  // 1d. An explicit "no comparator" is an answer, not a missing
+  // field (Qwen loop: user said "nothing" and the system looped
+  // back to asking for population). Set comparison to "none" so
+  // it stops counting as missing.
+  if (/^\s*(nothing|none|no(ne)?\s*(comparison|comparator|control)?)\s*[.!?]?\s*$/i.test(text) ||
+      /no\s+(comparison|comparator)/i.test(text)) {
+    parsed.comparison = "none";
+  }
   // 2. missing_fields must exactly match the null fields.
   const missing = picoFields.filter((f) => parsed[f] == null || parsed[f] === "");
   picoFields.forEach((f) => {
@@ -330,16 +389,16 @@ export async function chatWithBrowserLLM(text, priorHistory) {
   if (missing.length === 0) {
     parsed.clarification_question = null;
   } else {
-    // Keep the model's clarification only if it is a real question
-    // and not just the user's question restated (normalise strips
-    // case/punctuation, so "Do statins cause headaches?" matches
-    // "do statins cause headaches"). Otherwise ask for the first
-    // missing field.
-    const q = typeof parsed.clarification_question === "string" ? parsed.clarification_question.trim() : "";
-    if (!q.endsWith("?") || normalise(q) === normalise(text)) {
-      parsed.clarification_question = clarificationFor(missing[0]);
-    }
+    // Enforced clarification (loop fix, 2 Nov 2026): the old rule
+    // kept the model's clarification if it was any real question,
+    // so Qwen asked about a stated outcome and Gemma asked about
+    // cancer type / exposure type while population was missing.
+    // Now the clarification is ALWAYS the canned question for the
+    // first missing field, so it can never mismatch missing_fields
+    // or drift to refining a detail that is already known.
+    parsed.clarification_question = clarificationFor(missing[0]);
   }
+  void normalise;
   return JSON.stringify(
     {
       population: parsed.population ?? null,
