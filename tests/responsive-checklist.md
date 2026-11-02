@@ -19,14 +19,12 @@ Two routes, in this order:
 2. **Visual (real layout, on the PC):** Responsively 2.0 beta via the
    pc_agent MCP bridge, at `http://127.0.0.1:8000/`. This is the route that
    proves layout, because Bulma loads on the PC. **One device at a time:**
-   use Responsively's **Focus** button (bottom toolbar, between Column
-   and Canvas) — it shows one device centred at 100% with tabs on top
-   to switch devices, while keeping the full active set. Do NOT achieve
-   this by setting only one active device. Do not test all devices in
-   one window — a column of previews shrinks each view and can scroll
-   a device out of frame. Note: clicking Focus again toggles to Canvas
-   (all devices as draggable frames); click again to return to Focus,
-   and check the bottom-toolbar highlight before testing. Do not assume
+   use Responsively's **Canvas** option (bottom toolbar) — devices are
+   frames on a canvas, click a device's label to select it, pan/zoom to
+   that one device, test it fully, then select the next. Do NOT achieve
+   this by setting only one active device, and do not rely on Focus
+   (Focus was the earlier method, Canvas supersedes it). Per-device MCP
+   screenshots give the full view of the selected device. Do not assume
    Responsively mirroring covers all previews — click/send on each device
    individually.
 
@@ -62,7 +60,7 @@ prevalent device and say so — do not claim the missing device was tested.
 - [ ] **Keyboard:** Tab moves focus in a sensible order; focus indicator visible; Enter sends, Shift+Enter makes a newline.
 - [ ] **Orientation:** portrait and landscape both work on phones; landscape width > 768 shows the desktop sidebar layout.
 - [ ] **No hover-only interactions:** every action reachable by tap/keyboard, not only by hover.
-- [ ] **Service worker note:** after a CSS/JS change, the first load may still serve the old cached file. Reload once after the new service-worker version activates, then re-check the composer position. A gap that disappears on reload is a stale-cache artefact, not a layout bug.
+- [ ] **Service worker note:** after a CSS/JS change, the first load may still serve the old cached file. Reload once after the new service-worker version activates, then re-check the composer position. A gap that disappears on reload is a stale-cache artefact, not a layout bug. **Per-preview warning (found 2 Nov 2026):** in Responsively, each preview updates its service-worker cache on its own schedule — one navigate does not reliably update all previews, and the same device gave gap 0px in one screenshot and ~200px in another on the same code. Do not trust a single screenshot per device for the composer check: reload that device's preview several times, and only trust a result that is stable across reloads.
 - [ ] **Real-device spot check (before release):** at least one real iOS and one real Android device, not just emulation.
 
 ## Known open issues (do not re-report as new)
