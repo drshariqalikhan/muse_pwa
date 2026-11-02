@@ -37,6 +37,8 @@
           <button class="button" id="browser-llm-load-btn">Load browser LLM</button>
           <p id="browser-llm-status" class="sidebar-note">Not loaded — replies are placeholders.</p>
           <label class="browser-llm-toggle"><input type="checkbox" id="browser-llm-enabled" disabled> Use browser LLM for replies</label>
+          <label class="browser-llm-toggle"><input type="checkbox" id="browser-llm-pico" disabled> PICO mode — parse medical questions into PICO JSON</label>
+          <p class="sidebar-note">PICO mode only parses the question into Population, Intervention, Comparison and Outcome. It does not answer the medical question or give treatment advice. If a PICO part is missing, the JSON lists it in missing_fields and asks for it in clarification_question.</p>
         </div>
       </div>
     </div>

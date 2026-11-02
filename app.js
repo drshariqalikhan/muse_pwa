@@ -1,7 +1,7 @@
 // app.js — main UI wiring, Step 1 scaffold (in-memory only)
 import { handleSend, renderMessage } from "./chat.js";
 import { renderConversationList, createConversation } from "./history.js";
-import { loadBrowserLLM, setBrowserLLMEnabled } from "./webllm.js";
+import { loadBrowserLLM, setBrowserLLMEnabled, setBrowserLLMPicoMode } from "./webllm.js";
 
 // Framework7 shell: panel (sidebar menu), navbar, bottom toolbar,
 // system dark theme. darkMode:'auto' follows the device colour scheme,
@@ -150,6 +150,7 @@ document.querySelectorAll(".example-prompt").forEach((btn) => {
 const llmLoadBtn = document.getElementById("browser-llm-load-btn");
 const llmStatusEl = document.getElementById("browser-llm-status");
 const llmEnabledEl = document.getElementById("browser-llm-enabled");
+const llmPicoEl = document.getElementById("browser-llm-pico");
 if (llmLoadBtn && llmStatusEl && llmEnabledEl) {
   llmLoadBtn.addEventListener("click", async () => {
     llmLoadBtn.disabled = true;
@@ -163,6 +164,7 @@ if (llmLoadBtn && llmStatusEl && llmEnabledEl) {
       llmEnabledEl.disabled = false;
       llmEnabledEl.checked = true;
       setBrowserLLMEnabled(true);
+      if (llmPicoEl) llmPicoEl.disabled = false;
       // The button MUST stay enabled after a successful load: the
       // old code disabled it permanently ("Browser LLM loaded"),
       // so after the engine was disposed there was no way to load
@@ -179,6 +181,11 @@ if (llmLoadBtn && llmStatusEl && llmEnabledEl) {
     setBrowserLLMEnabled(llmEnabledEl.checked);
     if (!llmEnabledEl.checked) llmStatusEl.textContent = "Browser LLM loaded, but replies are placeholders (unticked).";
   });
+  if (llmPicoEl) {
+    llmPicoEl.addEventListener("change", () => {
+      setBrowserLLMPicoMode(llmPicoEl.checked);
+    });
+  }
 }
 
 document.getElementById("diagnostics-link").addEventListener("click", (e) => {
