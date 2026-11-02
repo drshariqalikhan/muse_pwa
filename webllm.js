@@ -32,6 +32,14 @@ export const BROWSER_LLM_MODELS = [
   { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", label: "Llama 3.2 1B (small, fast)" },
   { id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", label: "Qwen 2.5 1.5B (Alibaba)" },
   { id: "Hermes-3-Llama-3.1-8B-q4f32_1-MLC", label: "Hermes 3 8B (Nous Research, large)" },
+  // Added 2 Nov 2026 from developer-forum recommendations for
+  // structured JSON / extraction, all WebLLM prebuilt q4f32_1:
+  // Llama 3.2 3B (~2 GB, good balance), Phi-3.5-mini (Microsoft,
+  // ~2 GB, extraction/function-calling family), Gemma 2 2B (Google,
+  // ~1.5 GB, used in a schema-constrained browser JSON example).
+  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", label: "Llama 3.2 3B (balanced)" },
+  { id: "Phi-3.5-mini-instruct-q4f32_1-MLC", label: "Phi-3.5-mini (Microsoft)" },
+  { id: "gemma-2-2b-it-q4f32_1-MLC", label: "Gemma 2 2B (Google)" },
 ];
 
 let selectedModelId = BROWSER_LLM_MODEL;
