@@ -1,53 +1,80 @@
-/* muse_pwa chat-specific CSS only. Layout / buttons / inputs use Bulma. */
+/* muse_pwa chat-specific CSS. The shell (panel, navbar, toolbar,
+   buttons, dark theme, safe areas) is Framework7 9; Bulma is gone.
+   Framework7 already pads navbar/toolbar/page-content by the safe
+   areas and adds bottom padding to page-content for the toolbar, so
+   the composer stays pinned without the old flex-column workaround.
+   Extra horizontal padding below is deliberate: phones have rounded
+   corners even where env(safe-area-inset-left/right) is 0 in
+   portrait, so content must never touch the screen edge. */
 html, body { height: 100%; margin: 0; }
-/* Pin the composer to the bottom of the viewport, on every width.
-   Do NOT rely on Bulma's .columns display for this: Bulma stacks
-   .columns vertically on mobile (display:block), so #app-layout must
-   be a flex container in its own right, and .main-area must flex to
-   fill it. Otherwise the main column can end up only as tall as its
-   content (header + short message list + composer), leaving the
-   viewport's remaining height as white space below the composer —
-   exactly the gap seen after Send on mobile previews.
-   Height is given three ways on purpose: 100% (inherits the viewport
-   via html/body), 100vh, and 100dvh (mobile browser chrome). */
-#app-layout { display: flex; flex-direction: column; height: 100%; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; overflow: hidden; margin: 0 !important; }
-.sidebar { border-right: 1px solid #e5e5e5; height: 100vh; height: 100dvh; overflow-y: auto; }
-.main-area { display: flex; flex-direction: column; flex: 1 1 auto; width: 100%; height: 100%; height: 100vh; height: 100dvh; min-height: 0; }
-@media (min-width: 769px) {
-  #app-layout { flex-direction: row; }
-  .main-area { width: auto; }
-}
-.main-area > header { flex-shrink: 0; }
-/* Safe-area insets (notch, Dynamic Island, rounded corners, home bar).
-   viewport-fit=cover lets the page extend under the notch, so the
-   chrome must be padded by the insets or text/buttons sit under the
-   Dynamic Island / corners. On devices without a notch the insets are
-   0, so these calcs change nothing on desktop. */
-.main-area > header { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); padding-left: calc(0.75rem + env(safe-area-inset-left, 0px)); padding-right: calc(0.75rem + env(safe-area-inset-right, 0px)); }
-.sidebar > div { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); padding-left: calc(0.75rem + env(safe-area-inset-left, 0px)); padding-right: calc(0.75rem + env(safe-area-inset-right, 0px)); padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); }
-.message-list { padding-left: calc(1rem + env(safe-area-inset-left, 0px)); padding-right: calc(1rem + env(safe-area-inset-right, 0px)); }
-#welcome, #diagnostics { padding-left: calc(1rem + env(safe-area-inset-left, 0px)); padding-right: calc(1rem + env(safe-area-inset-right, 0px)); }
-#composer { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); padding-left: calc(0.75rem + env(safe-area-inset-left, 0px)); padding-right: calc(0.75rem + env(safe-area-inset-right, 0px)); }
-/* Portrait lock overlay for phones in landscape. Hidden by default in
-   this stylesheet (not Bulma's is-hidden), so it can never show just
-   because Bulma failed to load. JS adds .portrait-lock-show only for
-   phone-sized landscape windows (see app.js). */
-#portrait-lock { display: none; position: fixed; inset: 0; z-index: 100; background: #252f3f; color: white; align-items: center; justify-content: center; text-align: center; padding: calc(2rem + env(safe-area-inset-top, 0px)) calc(1rem + env(safe-area-inset-right, 0px)) calc(2rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px)); }
-#portrait-lock.portrait-lock-show { display: flex; }
-#portrait-lock h2 { color: white; }
-.border-bottom { border-bottom: 1px solid #e5e5e5; }
-.border-top { border-top: 1px solid #e5e5e5; }
-.message-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-#composer { flex-shrink: 0; background: white; }
-#diagnostics { overflow-y: auto; min-height: 0; }
+/* Replacement for Bulma's is-hidden, which the JS still toggles for
+   welcome / thinking / diagnostics. Defined here so hiding never
+   depends on the framework CSS loading. */
+.is-hidden { display: none !important; }
+
+/* Sidebar panel content. Framework7's panel-left already applies
+   safe-area-left in landscape; the padding here keeps text clear of
+   the notch, the Dynamic Island and rounded corners in portrait. */
+.sidebar-inner { padding: calc(16px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+.sidebar-inner h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
+.sidebar-subtitle { color: #666; margin: 0 0 1rem; }
+.sidebar-inner > .button { width: 100%; margin-bottom: 0.75rem; }
+.sidebar-inner h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #666; margin: 1rem 0 0.5rem; }
+#no-conversations { color: #666; font-size: 0.9rem; }
+
+/* Conversation list: Framework7 buttons, full-width, left-aligned. */
+.conversation-list { list-style: none; margin: 0; padding: 0; }
+.conversation-item { margin-bottom: 0.5rem; }
+.conversation-item .conv-open { display: block; width: 100%; text-align: left; justify-content: flex-start; margin-bottom: 0.25rem; }
+.conversation-item .conv-row { display: flex; gap: 0.25rem; }
+.conversation-item .conv-row .button { flex: 1; }
+.conversation-item.is-active .conv-open { background: #eef3fc; }
+
+/* Chat area. page-content scrolls (Framework7); the message list is
+   just content inside it, not a second scroller. */
+.message-list { padding: 16px calc(16px + env(safe-area-inset-right, 0px)) 8px calc(16px + env(safe-area-inset-left, 0px)); }
+#welcome, #diagnostics { padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 16px calc(16px + env(safe-area-inset-left, 0px)); }
+#welcome h2, #diagnostics h2 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+#welcome p, #diagnostics p { margin: 0 0 0.75rem; }
+.example-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.example-row .button { height: auto; white-space: normal; text-align: left; }
+#thinking { color: #666; padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 16px calc(16px + env(safe-area-inset-left, 0px)); }
+
+/* Composer in the bottom toolbar. Toolbar-inner is flex; the form
+   fills it, textarea grows, Send stays teal (Framework7 primary). */
+#composer { display: flex; gap: 0.5rem; align-items: stretch; width: 100%; padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+#message-input { flex: 1 1 auto; min-width: 0; resize: none; border: 1px solid #ccc; border-radius: 8px; padding: 8px; font: inherit; background: #fff; color: #000; }
+#send-btn { flex-shrink: 0; align-self: stretch; }
+
 .message-bubble { margin-bottom: 1rem; max-width: 85%; }
 .message-user { margin-left: auto; background: #eef3fc; border-radius: 12px; padding: 0.75rem; }
 .message-model { margin-right: auto; background: #f5f5f5; border-radius: 12px; padding: 0.75rem; }
-.message-label { font-size: 0.8rem; color: #666; margin-bottom: 0.25rem; }
-.message-bubble pre { white-space: pre-wrap; word-break: break-word; background: transparent; padding: 0; }
-.conversation-item { margin-bottom: 0.5rem; }
-.conversation-item.is-active button:first-child { background: #eef3fc; }
-@media (max-width: 768px) {
-  .sidebar { display: none; position: fixed; z-index: 10; background: white; width: 80%; height: 100vh; height: 100dvh; }
-  .sidebar.sidebar-open { display: block; }
+.message-label { font-size: 0.8rem; color: #666; margin: 0 0 0.25rem; }
+.message-bubble pre { white-space: pre-wrap; word-break: break-word; background: transparent; padding: 0; margin: 0; }
+.message-bubble code { font: inherit; }
+
+/* Portrait lock overlay for phones in landscape. Hidden by default in
+   this stylesheet (not a framework class), so it can never show just
+   because Framework7 failed to load. JS adds .portrait-lock-show only
+   for phone-sized landscape windows (see app.js). */
+#portrait-lock { display: none; position: fixed; inset: 0; z-index: 20000; background: #252f3f; color: white; align-items: center; justify-content: center; text-align: center; padding: calc(2rem + env(safe-area-inset-top, 0px)) calc(1rem + env(safe-area-inset-right, 0px)) calc(2rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px)); }
+#portrait-lock.portrait-lock-show { display: flex; }
+#portrait-lock h2 { color: white; }
+
+/* Dark theme for our own elements. Framework7's darkMode:'auto'
+   adds the .dark class and restyles panel/navbar/toolbar/buttons;
+   these rules cover the parts Framework7 does not own (bubbles,
+   textarea, sidebar text). The media query is a fallback so dark
+   styling also applies if Framework7's class is ever absent. */
+html.dark .sidebar-subtitle, html.dark .sidebar-inner h2, html.dark #no-conversations, html.dark #thinking, html.dark .message-label { color: #aaa; }
+html.dark .conversation-item.is-active .conv-open { background: #1e3a5f; }
+html.dark .message-user { background: #1e3a5f; }
+html.dark .message-model { background: #2a2a2a; }
+html.dark #message-input { background: #1c1c1e; color: #fff; border-color: #444; }
+@media (prefers-color-scheme: dark) {
+  .sidebar-subtitle, .sidebar-inner h2, #no-conversations, #thinking, .message-label { color: #aaa; }
+  .conversation-item.is-active .conv-open { background: #1e3a5f; }
+  .message-user { background: #1e3a5f; }
+  .message-model { background: #2a2a2a; }
+  #message-input { background: #1c1c1e; color: #fff; border-color: #444; }
 }

@@ -16,6 +16,15 @@ export function renderMessage(listEl, role, content) {
 }
 
 export function scrollToLatest(listEl, force) {
+  // Framework7 shell: the page-content scrolls, the message list no
+  // longer scrolls on its own. Scroll whichever one actually scrolls
+  // (page-content in the Framework7 shell, listEl in any fallback).
+  const pageContent = listEl.closest ? listEl.closest(".page-content") : null;
+  if (pageContent && pageContent.scrollHeight > pageContent.clientHeight) {
+    const nearBottom = pageContent.scrollHeight - pageContent.scrollTop - pageContent.clientHeight < 200;
+    if (force || nearBottom) pageContent.scrollTop = pageContent.scrollHeight;
+    return;
+  }
   const nearBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 200;
   if (force || nearBottom) {
     listEl.scrollTop = listEl.scrollHeight;

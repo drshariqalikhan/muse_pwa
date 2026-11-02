@@ -2,6 +2,31 @@
 import { handleSend, renderMessage } from "./chat.js";
 import { renderConversationList, createConversation } from "./history.js";
 
+// Framework7 shell: panel (sidebar menu), navbar, bottom toolbar,
+// system dark theme. darkMode:'auto' follows the device colour scheme,
+// so the panel is dark when the rest of the app is dark — the old
+// hardcoded-white sidebar is gone. visibleBreakpoint: 769 keeps the
+// panel always visible on desktop/tablet widths and a drawer on
+// phones; closeByBackdropClick (Framework7 default) is what lets the
+// drawer close again by tapping outside it.
+let f7 = null;
+if (typeof window.Framework7 === "function") {
+  f7 = new window.Framework7({
+    el: "#app",
+    name: "muse_pwa",
+    darkMode: "auto",
+    panel: { swipe: true, visibleBreakpoint: 769 },
+  });
+} else {
+  console.warn("Framework7 did not load; shell panel/navbar are inactive");
+}
+function closePanelOnMobile() {
+  // On phones the panel is a drawer; close it after a selection so
+  // the user lands back on the chat. On desktop the panel is always
+  // visible (visibleBreakpoint) and must stay open.
+  if (f7 && window.innerWidth < 769) f7.panel.close("left", false);
+}
+
 const state = {
   currentConversationId: null,
   conversations: [],
@@ -34,6 +59,7 @@ function openConversation(id) {
   welcomeEl.classList.add("is-hidden");
   diagnosticsEl.classList.add("is-hidden");
   refreshList();
+  closePanelOnMobile();
 }
 
 function renameConversation(id) {
@@ -64,6 +90,7 @@ document.getElementById("new-chat-btn").addEventListener("click", () => {
   openConversation(c.id);
   welcomeEl.classList.remove("is-hidden");
   listEl.innerHTML = "";
+  closePanelOnMobile();
 });
 
 document.getElementById("composer").addEventListener("submit", (e) => {
@@ -90,11 +117,13 @@ document.getElementById("diagnostics-link").addEventListener("click", (e) => {
   e.preventDefault();
   diagnosticsEl.classList.remove("is-hidden");
   welcomeEl.classList.add("is-hidden");
+  closePanelOnMobile();
 });
 
-document.getElementById("sidebar-toggle").addEventListener("click", () => {
-  document.getElementById("sidebar").classList.toggle("sidebar-open");
-});
+// No sidebar-toggle handler here any more: the ☰ link in the navbar
+// has Framework7's panel-open class, which opens the panel, and the
+// panel's backdrop (or panel-close) closes it. The old handler that
+// toggled .sidebar-open is what trapped the drawer open.
 
 // Portrait lock for phones. Installed PWAs use manifest
 // "orientation": "portrait"; in a browser, screen.orientation.lock()

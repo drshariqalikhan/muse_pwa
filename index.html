@@ -6,67 +6,91 @@
 <title>muse_pwa — Chat with AI</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#252f3f">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css">
+<!-- Framework7 9 shell (vanilla JS, no build step). Verified CDN:
+     https://cdn.jsdelivr.net/npm/framework7@9/framework7-bundle.min.css
+     (Framework7 9.3.0). Bulma was removed: Framework7's panel, navbar
+     and toolbar replace the Bulma shell, including safe-area handling
+     and a system dark theme. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/framework7@9/framework7-bundle.min.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="columns is-gapless m-0" id="app-layout">
-  <aside class="column is-3 sidebar" id="sidebar">
-    <div class="p-3">
-      <h1 class="title is-5 mb-3">muse_pwa</h1>
-      <p class="subtitle is-6 mb-3">Chat with AI</p>
-      <button class="button is-primary is-fullwidth mb-3" id="new-chat-btn">New chat</button>
-      <a class="button is-light is-fullwidth mb-4" href="#diagnostics" id="diagnostics-link">Connection tests</a>
-      <h2 class="heading mb-2">Conversations</h2>
-      <ul id="conversation-list" class="conversation-list"></ul>
-      <p id="no-conversations" class="has-text-grey">No chats yet — start a new chat.</p>
-    </div>
-  </aside>
-  <main class="column main-area">
-    <header class="p-3 border-bottom">
-      <button class="button is-small mr-2" id="sidebar-toggle">☰</button>
-      <span id="conversation-title" class="title is-5 m-0">New chat</span>
-    </header>
-    <div id="message-list" class="message-list p-4"></div>
-    <div id="welcome" class="p-4">
-      <h2 class="title is-4">Welcome to muse_pwa</h2>
-      <p class="mb-3">This is Step 1: frontend scaffold only. Replies below are placeholders — no Supabase or Gemini yet (see BUILD.md Step 4–5).</p>
-      <p class="mb-2">Try an example:</p>
-      <div class="buttons">
-        <button class="button is-light example-prompt">Explain context windows in one paragraph</button>
-        <button class="button is-light example-prompt">Give me a simple test plan for a chat app</button>
-        <button class="button is-light example-prompt">What is a PWA?</button>
-      </div>
-    </div>
-    <div id="thinking" class="p-3 has-text-grey is-hidden">AI is thinking…</div>
-    <form id="composer" class="p-3 border-top">
-      <div class="field has-addons">
-        <div class="control is-expanded">
-          <textarea id="message-input" class="textarea" rows="2" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
-        </div>
-        <div class="control">
-          <button type="submit" id="send-btn" class="button is-primary" style="height:100%">Send</button>
+<div id="app">
+  <!-- Left panel: sidebar menu. panel-cover overlays the main view on
+       phones; visibleBreakpoint makes it always visible on wider
+       screens (>=769px, the old Bulma sidebar breakpoint). Backdrop
+       click closes it (Framework7 default closeByBackdropClick=true),
+       which is the fix for the old drawer that could not be closed. -->
+  <div class="panel panel-left panel-cover panel-init" id="sidebar" data-visible-breakpoint="769" data-swipe="true">
+    <div class="page">
+      <div class="page-content">
+        <div class="sidebar-inner">
+          <h1>muse_pwa</h1>
+          <p class="sidebar-subtitle">Chat with AI</p>
+          <button class="button button-fill" id="new-chat-btn">New chat</button>
+          <a class="button" href="#diagnostics" id="diagnostics-link">Connection tests</a>
+          <h2>Conversations</h2>
+          <ul id="conversation-list" class="conversation-list"></ul>
+          <p id="no-conversations">No chats yet — start a new chat.</p>
         </div>
       </div>
-    </form>
-    <div id="diagnostics" class="p-4 is-hidden">
-      <h2 class="title is-4">Connection tests</h2>
-      <p>Diagnostics page — full implementation in BUILD.md Step 7. For now, this page only proves the frontend loaded.</p>
-      <ul>
-        <li>Frontend loaded: <strong>pass</strong> (you are seeing this page)</li>
-        <li>Supabase DB read: <strong>not implemented yet (Step 5)</strong></li>
-        <li>Edge Function health: <strong>not implemented yet (Step 4)</strong></li>
-        <li>Gemini via Edge Function: <strong>not implemented yet (Step 4)</strong></li>
-      </ul>
     </div>
-  </main>
+  </div>
+  <!-- Main view -->
+  <div class="view view-main view-init">
+    <div class="page" data-name="home">
+      <div class="navbar ios-edges">
+        <div class="navbar-bg"></div>
+        <div class="navbar-inner">
+          <div class="left">
+            <a href="#" class="link panel-open" data-panel="left" id="sidebar-toggle" aria-label="Open menu">☰</a>
+          </div>
+          <div class="title" id="conversation-title">New chat</div>
+          <div class="right"></div>
+        </div>
+      </div>
+      <div class="toolbar toolbar-bottom ios-edges">
+        <div class="toolbar-inner">
+          <form id="composer">
+            <textarea id="message-input" rows="2" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
+            <button type="submit" id="send-btn" class="button button-fill">Send</button>
+          </form>
+        </div>
+      </div>
+      <div class="page-content">
+        <div id="message-list" class="message-list"></div>
+        <div id="welcome">
+          <h2>Welcome to muse_pwa</h2>
+          <p>This is Step 1: frontend scaffold only. Replies below are placeholders — no Supabase or Gemini yet (see BUILD.md Step 4–5).</p>
+          <p>Try an example:</p>
+          <div class="example-row">
+            <button class="button example-prompt">Explain context windows in one paragraph</button>
+            <button class="button example-prompt">Give me a simple test plan for a chat app</button>
+            <button class="button example-prompt">What is a PWA?</button>
+          </div>
+        </div>
+        <div id="thinking" class="is-hidden">AI is thinking…</div>
+        <div id="diagnostics" class="is-hidden">
+          <h2>Connection tests</h2>
+          <p>Diagnostics page — full implementation in BUILD.md Step 7. For now, this page only proves the frontend loaded.</p>
+          <ul>
+            <li>Frontend loaded: <strong>pass</strong> (you are seeing this page)</li>
+            <li>Supabase DB read: <strong>not implemented yet (Step 5)</strong></li>
+            <li>Edge Function health: <strong>not implemented yet (Step 4)</strong></li>
+            <li>Gemini via Edge Function: <strong>not implemented yet (Step 4)</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 <div id="portrait-lock" aria-hidden="true">
   <div>
-    <h2 class="title is-4">Please rotate your phone back to portrait</h2>
+    <h2>Please rotate your phone back to portrait</h2>
     <p>This app is portrait-only on phones.</p>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/framework7@9/framework7-bundle.min.js"></script>
 <script type="module" src="app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
