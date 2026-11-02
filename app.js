@@ -1,5 +1,5 @@
 // app.js — main UI wiring, Step 1 scaffold (in-memory only)
-import { handleSend, renderMessage } from "./chat.js";
+import { handleSend, renderMessage, shouldPromptNewChat } from "./chat.js";
 import { renderConversationList, createConversation } from "./history.js";
 import { loadBrowserLLM, setBrowserLLMEnabled, setBrowserLLMPicoMode } from "./webllm.js";
 
@@ -128,9 +128,45 @@ document.getElementById("new-chat-btn").addEventListener("click", () => {
   closePanelOnMobile();
 });
 
-document.getElementById("composer").addEventListener("submit", (e) => {
+// New-patient prompt: before sending in PICO mode, if the message
+// looks like a new clinical question (see shouldPromptNewChat in
+// chat.js), ask the user whether to start a new chat. Starting a
+// new chat resets state.messages (openConversation), so the previous
+// patient's PICO context cannot leak into the new question. The
+// dialog is in-app (Framework7), for the same reason Rename/Delete
+// use in-app dialogs: a native dialog would appear on the computer,
+// outside a phone preview. Fallback is window.confirm.
+function askNewChat() {
+  return new Promise((resolve) => {
+    if (f7 && f7.dialog && typeof f7.dialog.create === "function") {
+      f7.dialog.create({
+        title: "New patient or new question?",
+        text: "This looks like a new clinical question. Starting a new chat clears the previous patient's context, so it cannot carry over into this question.",
+        destroyOnClose: true,
+        buttons: [
+          { text: "Continue in this chat", onClick: () => resolve(false) },
+          { text: "Start new chat", strong: true, onClick: () => resolve(true) },
+        ],
+      }).open();
+    } else {
+      resolve(window.confirm("This looks like a new clinical question. Start a new chat to clear the previous patient's context?"));
+    }
+  });
+}
+
+document.getElementById("composer").addEventListener("submit", async (e) => {
   e.preventDefault();
   diagnosticsEl.classList.add("is-hidden");
+  const text = inputEl.value.trim();
+  if (text && shouldPromptNewChat(text, state.messages)) {
+    const startNew = await askNewChat();
+    if (startNew) {
+      const c = createConversation(state.conversations, "New chat");
+      openConversation(c.id);
+      welcomeEl.classList.remove("is-hidden");
+      listEl.innerHTML = "";
+    }
+  }
   handleSend(state, listEl, thinkingEl, sendBtn, inputEl).then(() => refreshList());
 });
 
