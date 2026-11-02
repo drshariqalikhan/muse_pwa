@@ -18,8 +18,12 @@ Two routes, in this order:
    Bulma-less run are invalid, because the app is unstyled there.
 2. **Visual (real layout, on the PC):** Responsively 2.0 beta via the
    pc_agent MCP bridge, at `http://127.0.0.1:8000/`. This is the route that
-   proves layout, because Bulma loads on the PC. Do not assume Responsively
-   mirroring covers all previews — click/send on each device individually.
+   proves layout, because Bulma loads on the PC. **One device at a time:**
+   set only one active device, test it fully, then move to the next.
+   Do not test all devices in one window — a column of previews shrinks
+   each view and can scroll a device out of frame. Do not assume
+   Responsively mirroring covers all previews — click/send on each device
+   individually.
 
 ## Viewport matrix
 
