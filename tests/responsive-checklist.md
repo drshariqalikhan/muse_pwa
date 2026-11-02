@@ -17,16 +17,18 @@ Two routes, in this order:
    checks are reported as SKIPPED, not FAILED — layout results from a
    Bulma-less run are invalid, because the app is unstyled there.
 2. **Visual (real layout, on the PC):** Responsively 2.0 beta via the
-   pc_agent MCP bridge, at `http://127.0.0.1:8000/`. This is the route that
-   proves layout, because Bulma loads on the PC. **One device at a time:**
-   use Responsively's **Canvas** option (bottom toolbar) — devices are
-   frames on a canvas, click a device's label to select it, pan/zoom to
-   that one device, test it fully, then select the next. Do NOT achieve
-   this by setting only one active device, and do not rely on Focus
-   (Focus was the earlier method, Canvas supersedes it). Per-device MCP
-   screenshots give the full view of the selected device. Do not assume
-   Responsively mirroring covers all previews — click/send on each device
-   individually.
+   pc_agent MCP bridge, at `http://127.0.0.1:8000/` (or a fresh port such
+   as 8001 when a clean service-worker cache is needed). This is the
+   route that proves layout, because Bulma loads on the PC.
+   **One device at a time, literally:** use Responsively's **Canvas**
+   option (bottom toolbar) AND set **only one active device** at a time
+   (`set_active_devices` with a single device) — the whole canvas holds
+   just that one device, not several frames. Test it fully, then set the
+   next single device and repeat. Do not rely on Focus (an earlier
+   method, Canvas supersedes it) and do not test several devices at
+   once. Per-device MCP screenshots give the full view of the device.
+   Do not assume Responsively mirroring covers all previews — click/send
+   on each device individually.
 
 ## Viewport matrix
 
@@ -52,7 +54,7 @@ prevalent device and say so — do not claim the missing device was tested.
 
 - [ ] **No horizontal scroll:** `scrollWidth <= clientWidth` (no content clipped off-screen).
 - [ ] **Layout reflows:** single column on phone, sidebar on desktop; no overlap of header, messages, composer.
-- [ ] **Composer pinned:** after sending, the textarea + Send button sit at the bottom edge of the viewport (gap <= 2px). This was the Nov 2026 bug: a `max-height` cap on the message list left white space below the composer.
+- [ ] **Composer pinned:** after sending, the textarea + Send button sit at the bottom edge of the viewport (gap <= 2px). This was the Nov 2026 bug: a `max-height` cap on the message list left white space below the composer. Fixed 2 Nov 2026 (commit 6d5ba5d): `#app-layout` is now an explicit flex container (not relying on Bulma's `.columns` display, which stacks vertically on mobile), `.main-area` flexes to fill it, and `sw.js` v3 fetches CSS/JS network-first so a stale service-worker cache cannot keep serving the old layout. Verified 2 Nov 2026, one device at a time in Canvas on a fresh port (8001, clean SW cache): Send-button gap 8–13px on all six devices (iPhone 17, Pro Max, Pixel 10, Galaxy S24 Ultra, iPad Mini, MacBook Pro), portrait and landscape.
 - [ ] **Key flow works:** example prompt fills the composer without sending; Send gives a user message + AI placeholder reply; New chat returns to Welcome with the previous conversation preserved.
 - [ ] **Navigation reachable:** sidebar on desktop; drawer toggle (☰) on mobile, with New chat / Connection tests / conversation list inside the drawer.
 - [ ] **Touch targets:** Send and example buttons at least 44×44 CSS px on mobile.
