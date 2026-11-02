@@ -58,43 +58,59 @@ export function setBrowserLLMModel(id) {
   return false;
 }
 
-// PICO JSON schema for the PICO mode below. Fixed fields only:
-// population, intervention, comparison, outcome, plus two fields
-// that carry the incomplete case inside the JSON itself, so the
-// output is always parseable JSON: missing_fields (what was not
-// stated) and clarification_question (what to ask for next, or
-// null when nothing is missing).
+// PICO JSON schema for the PICO mode below, changed 2 Nov 2026
+// at Shariq's request: the old population string is replaced by
+// a structured patient object (age, gender, medical conditions
+// list), and intervention is renamed intervention_or_exposure
+// (a drug is an intervention, sunlight is an exposure — same
+// field). missing_fields and clarification_question are kept,
+// because without them the code cannot enforce the clarification
+// or break the loop: they are the fields that carry the
+// incomplete case inside the JSON itself.
+// Note on missing: "patient" counts as missing only if ALL of
+// age, gender and medical_conditions are empty. Otherwise every
+// question would always ask for gender even when it is
+// irrelevant, which would itself create a loop.
 export const PICO_SCHEMA = {
-  population: "string|null",
-  intervention: "string|null",
+  patient: {
+    age: "string|null",
+    gender: "string|null",
+    medical_conditions: ["string"],
+  },
+  intervention_or_exposure: "string|null",
   comparison: "string|null",
   outcome: "string|null",
   missing_fields: ["string"],
   clarification_question: "string|null",
 };
 
-// Proper JSON Schema for WebLLM's schema-constrained decoding
-// (added 2 Nov 2026 for the constrained-JSON Gemma test). Passed as
-// response_format { type: "json_object", schema: JSON.stringify(...) }
-// in PICO mode only, so the engine masks any token that would break
-// the shape — the reply must be a JSON object with exactly these
-// six keys, with null allowed for any unstated PICO component.
-// This guarantees shape, not truth: a model can still emit an
-// invented string value, which is why the code validation below
-// (no-defaults, missing_fields, clarification) still runs.
+// Proper JSON Schema for WebLLM's schema-constrained decoding.
+// Passed as response_format in PICO mode only, so the engine
+// masks any token that would break the shape. This guarantees
+// shape, not truth: a model can still emit an invented string
+// value, which is why the code validation below still runs.
 export const PICO_JSON_SCHEMA = {
   type: "object",
   properties: {
-    population: { type: ["string", "null"] },
-    intervention: { type: ["string", "null"] },
+    patient: {
+      type: "object",
+      properties: {
+        age: { type: ["string", "null"] },
+        gender: { type: ["string", "null"] },
+        medical_conditions: { type: "array", items: { type: "string" } },
+      },
+      required: ["age", "gender", "medical_conditions"],
+      additionalProperties: false,
+    },
+    intervention_or_exposure: { type: ["string", "null"] },
     comparison: { type: ["string", "null"] },
     outcome: { type: ["string", "null"] },
     missing_fields: { type: "array", items: { type: "string" } },
     clarification_question: { type: ["string", "null"] },
   },
   required: [
-    "population",
-    "intervention",
+    "patient",
+    "intervention_or_exposure",
     "comparison",
     "outcome",
     "missing_fields",
@@ -112,18 +128,21 @@ export const PICO_JSON_SCHEMA = {
 const PICO_SYSTEM_PROMPT =
   "You are a PICO parser, not a medical advisor. Do NOT answer the clinical question. " +
   "Parse only what is stated into JSON matching exactly this schema, no other text, no fences: " +
-  '{"population": string|null, "intervention": string|null, "comparison": string|null, ' +
+  '{"patient": {"age": string|null, "gender": string|null, "medical_conditions": [string]}, ' +
+  '"intervention_or_exposure": string|null, "comparison": string|null, ' +
   '"outcome": string|null, "missing_fields": [string], "clarification_question": string|null}. ' +
-  "Use null for any component not stated; never infer a diagnosis, comparator, dose, or outcome. " +
-  "Never default population to adults or to people with the outcome; a symptom alone is an outcome, not a population. " +
+  "Use null (and [] for medical_conditions) for anything not stated; never infer an age, gender, diagnosis, comparator, dose, or outcome. " +
+  "Patient: age is the age or age group as stated (for example \"70 years old\", \"elderly\", \"adults\"), gender only if stated, medical_conditions is a list of conditions as stated (for example [\"atrial fibrillation\"]), [] if none stated. A symptom alone is an outcome, not a condition and not a patient description. " +
+  "Intervention_or_exposure: the drug, treatment, or exposure as stated (apixaban is an intervention, sunlight is an exposure). " +
   "Never default comparison to placebo; comparison is null unless a comparator is explicitly named (compared with, versus, vs, placebo, control, or another treatment). " +
   "Never copy question wording into comparison. " +
   "If the user explicitly says there is no comparator (nothing, none, no comparison), set comparison to \"none\", not null. " +
   "If history contains a previous PICO JSON and the user is supplying missing information, update that JSON and keep previously stated fields. " +
   "A new question about a different intervention or outcome starts a NEW PICO; do not carry fields from an unrelated earlier question. " +
   "Example: In adults with atrial fibrillation, does apixaban compared with warfarin reduce stroke? " +
-  '-> {"population": "adults with atrial fibrillation", "intervention": "apixaban", ' +
-  '"comparison": "warfarin", "outcome": "stroke", "missing_fields": [], "clarification_question": null}';
+  '-> {"patient": {"age": "adults", "gender": null, "medical_conditions": ["atrial fibrillation"]}, ' +
+  '"intervention_or_exposure": "apixaban", "comparison": "warfarin", "outcome": "stroke", ' +
+  '"missing_fields": [], "clarification_question": null}';
 
 let engine = null;
 let enabled = false;
@@ -307,7 +326,25 @@ export async function chatWithBrowserLLM(text, priorHistory, onChunk) {
   // and a population carried over from an unrelated earlier question).
   // These checks fix the mechanically detectable failures instead of
   // trusting the model's missing_fields / clarification_question.
-  const picoFields = ["population", "intervention", "comparison", "outcome"];
+  const picoFields = ["patient", "intervention_or_exposure", "comparison", "outcome"];
+  // Normalise patient: always an object with the three subfields,
+  // even if the model returned null or a plain string (old shape).
+  const normalisePatient = (p) => {
+    if (typeof p === "string") return { age: p || null, gender: null, medical_conditions: [] };
+    if (!p || typeof p !== "object") return { age: null, gender: null, medical_conditions: [] };
+    return {
+      age: typeof p.age === "string" && p.age ? p.age : null,
+      gender: typeof p.gender === "string" && p.gender ? p.gender : null,
+      medical_conditions: Array.isArray(p.medical_conditions)
+        ? p.medical_conditions.filter((c) => typeof c === "string" && c)
+        : [],
+    };
+  };
+  parsed.patient = normalisePatient(parsed.patient);
+  const isPatientMissing = (p) =>
+    (!p.age) && (!p.gender) && (!Array.isArray(p.medical_conditions) || p.medical_conditions.length === 0);
+  const isFieldMissing = (f) =>
+    f === "patient" ? isPatientMissing(parsed.patient) : (parsed[f] == null || parsed[f] === "");
   // 1. A question sentence is never a comparator. Examples seen:
   // "will apixaban reduce stroke risk in", "do statins cause headaches?"
   if (typeof parsed.comparison === "string") {
@@ -327,8 +364,8 @@ export async function chatWithBrowserLLM(text, priorHistory, onChunk) {
   // does not describe a population.
   const hasComparatorPhrase = /compared|versus|\bvs\b|placebo|\bcontrol\b|instead of/i.test(text);
   if (!hasComparatorPhrase) parsed.comparison = null;
-  const hasPeopleDescription = /patient|people|adult|child|men\b|women\b|elderly|pregnant|\d+\s*(yr|years?|yo)\b|\bold\b/i.test(text);
-  if (!hasPeopleDescription) parsed.population = null;
+  const hasPeopleDescription = /patient|people|adult|child|men\b|women\b|male|female|elderly|pregnant|\d+\s*(yr|years?|yo)\b|\bold\b/i.test(text);
+  if (!hasPeopleDescription) parsed.patient = { age: null, gender: null, medical_conditions: [] };
   // 1c. Confirmed-field preservation (the loop fix, 2 Nov 2026):
   // Qwen dropped "adults" and Gemma dropped "elderly" the moment
   // the user answered a different field ("sunlight", "nothing"),
@@ -356,7 +393,15 @@ export async function chatWithBrowserLLM(text, priorHistory, onChunk) {
     }
     if (priorPico) {
       picoFields.forEach((f) => {
-        if ((parsed[f] == null || parsed[f] === "") && priorPico[f] != null && priorPico[f] !== "") {
+        if (f === "patient") {
+          const priorPatient = normalisePatient(priorPico.patient);
+          if (!parsed.patient.age && priorPatient.age) parsed.patient.age = priorPatient.age;
+          if (!parsed.patient.gender && priorPatient.gender) parsed.patient.gender = priorPatient.gender;
+          if ((!parsed.patient.medical_conditions || parsed.patient.medical_conditions.length === 0) &&
+              priorPatient.medical_conditions.length > 0) {
+            parsed.patient.medical_conditions = [...priorPatient.medical_conditions];
+          }
+        } else if ((parsed[f] == null || parsed[f] === "") && priorPico[f] != null && priorPico[f] !== "") {
           parsed[f] = priorPico[f];
         }
       });
@@ -371,17 +416,17 @@ export async function chatWithBrowserLLM(text, priorHistory, onChunk) {
     parsed.comparison = "none";
   }
   // 2. missing_fields must exactly match the null fields.
-  const missing = picoFields.filter((f) => parsed[f] == null || parsed[f] === "");
+  const missing = picoFields.filter((f) => isFieldMissing(f));
   picoFields.forEach((f) => {
-    if (parsed[f] == null || parsed[f] === "") parsed[f] = null;
+    if (f !== "patient" && (parsed[f] == null || parsed[f] === "")) parsed[f] = null;
   });
   parsed.missing_fields = missing;
   // 3. Clarification must be a real question for missing information,
   // never a restatement of the user's question, and null when complete.
   const normalise = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
   const clarificationFor = (field) => {
-    if (field === "population") return "Who are the patients in this question?";
-    if (field === "intervention") return "What intervention are you asking about?";
+    if (field === "patient") return "Who are the patients in this question? Please give age, gender, and any medical conditions if known.";
+    if (field === "intervention_or_exposure") return "What intervention or exposure are you asking about?";
     if (field === "comparison") return "What is the intervention being compared with?";
     if (field === "outcome") return "What outcome are you asking about?";
     return "What information is missing from this question?";
@@ -401,8 +446,8 @@ export async function chatWithBrowserLLM(text, priorHistory, onChunk) {
   void normalise;
   return JSON.stringify(
     {
-      population: parsed.population ?? null,
-      intervention: parsed.intervention ?? null,
+      patient: parsed.patient,
+      intervention_or_exposure: parsed.intervention_or_exposure ?? null,
       comparison: parsed.comparison ?? null,
       outcome: parsed.outcome ?? null,
       missing_fields: parsed.missing_fields,
