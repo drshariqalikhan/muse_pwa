@@ -65,24 +65,52 @@ function openConversation(id) {
 function renameConversation(id) {
   const c = state.conversations.find((x) => x.id === id);
   if (!c) return;
-  const next = window.prompt("Rename conversation", c.title);
-  if (next && next.trim()) {
-    c.title = next.trim();
-    if (id === state.currentConversationId) titleEl.textContent = c.title;
-    refreshList();
+  const applyRename = (next) => {
+    if (next && next.trim()) {
+      c.title = next.trim();
+      if (id === state.currentConversationId) titleEl.textContent = c.title;
+      refreshList();
+    }
+  };
+  // In-app Framework7 prompt, not window.prompt: a native prompt
+  // appears as a computer/browser dialog outside an embedded phone
+  // preview (e.g. Responsively), so on a phone preview it looked
+  // like Rename did nothing. The Framework7 dialog renders inside
+  // the app, on the phone screen itself.
+  if (f7 && f7.dialog && typeof f7.dialog.prompt === "function") {
+    f7.dialog.prompt("Enter a new name for this conversation", "Rename conversation", applyRename, undefined, c.title);
+  } else {
+    applyRename(window.prompt("Rename conversation", c.title));
   }
 }
 
 function deleteConversation(id) {
-  if (!window.confirm("Delete this conversation?")) return;
-  state.conversations = state.conversations.filter((x) => x.id !== id);
-  if (id === state.currentConversationId) {
-    state.currentConversationId = null;
-    titleEl.textContent = "New chat";
-    listEl.innerHTML = "";
-    welcomeEl.classList.remove("is-hidden");
+  const doDelete = () => {
+    state.conversations = state.conversations.filter((x) => x.id !== id);
+    if (id === state.currentConversationId) {
+      state.currentConversationId = null;
+      titleEl.textContent = "New chat";
+      listEl.innerHTML = "";
+      welcomeEl.classList.remove("is-hidden");
+    }
+    refreshList();
+  };
+  // Same native-dialog problem as Rename: window.confirm pops up on
+  // the computer, outside the phone preview. Use an in-app
+  // Framework7 dialog with an explicit "Are you sure?" + Delete/Cancel.
+  if (f7 && f7.dialog && typeof f7.dialog.create === "function") {
+    f7.dialog.create({
+      title: "Delete chat",
+      text: "Are you sure you want to delete this chat?",
+      destroyOnClose: true,
+      buttons: [
+        { text: "Cancel" },
+        { text: "Delete", color: "red", strong: true, onClick: doDelete },
+      ],
+    }).open();
+  } else if (window.confirm("Are you sure you want to delete this chat?")) {
+    doDelete();
   }
-  refreshList();
 }
 
 document.getElementById("new-chat-btn").addEventListener("click", () => {

@@ -50,8 +50,8 @@ html, body { height: 100%; margin: 0; }
    own 16px iOS bottom padding; adding safe-area again double-counts
    and leaves a ~40px gap on iPhones. */
 #composer { display: flex; gap: 0.5rem; align-items: stretch; width: 100%; padding: 0 calc(8px + env(safe-area-inset-right, 0px)) 0 calc(8px + env(safe-area-inset-left, 0px)); box-sizing: border-box; }
-#message-input { flex: 1 1 auto; min-width: 0; width: auto; resize: none; border: 1px solid #ccc; border-radius: 8px; padding: 8px; font: inherit; background: #fff; color: #000; }
-#send-btn { width: auto !important; flex: 0 0 auto; align-self: stretch; }
+#message-input { flex: 1 1 auto; min-width: 0; width: auto; height: var(--f7-button-height, 40px); box-sizing: border-box; resize: none; border: 1px solid #ccc; border-radius: 8px; padding: 6px 8px; font: inherit; background: #fff; color: #000; }
+#send-btn { width: auto !important; height: var(--f7-button-height, 40px); flex: 0 0 auto; align-self: center; }
 .example-row .button, .conv-row .button { width: auto; }
 
 .message-bubble { margin-bottom: 1rem; max-width: 85%; }
