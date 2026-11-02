@@ -96,5 +96,35 @@ document.getElementById("sidebar-toggle").addEventListener("click", () => {
   document.getElementById("sidebar").classList.toggle("sidebar-open");
 });
 
+// Portrait lock for phones. Installed PWAs use manifest
+// "orientation": "portrait"; in a browser, screen.orientation.lock()
+// only works in fullscreen, so it is best-effort here, and the overlay
+// below is the visible lock: phone-sized landscape windows get a
+// "rotate back to portrait" screen, which hides again on portrait.
+// Phone-sized = landscape, short side <= 600px, long side <= 1024px.
+// That covers phones (e.g. iPhone 17 landscape 852x393) and excludes
+// tablets (iPad Mini landscape is 1024x768) and desktops.
+const portraitLockEl = document.getElementById("portrait-lock");
+function updateOrientationLock() {
+  if (!portraitLockEl) return;
+  const isPhoneLandscape =
+    window.innerWidth > window.innerHeight &&
+    window.innerHeight <= 600 &&
+    window.innerWidth <= 1024;
+  if (isPhoneLandscape) {
+    portraitLockEl.classList.add("portrait-lock-show");
+    portraitLockEl.setAttribute("aria-hidden", "false");
+    if (window.screen && window.screen.orientation && typeof window.screen.orientation.lock === "function") {
+      window.screen.orientation.lock("portrait").catch(() => {});
+    }
+  } else {
+    portraitLockEl.classList.remove("portrait-lock-show");
+    portraitLockEl.setAttribute("aria-hidden", "true");
+  }
+}
+window.addEventListener("resize", updateOrientationLock);
+window.addEventListener("orientationchange", updateOrientationLock);
+updateOrientationLock();
+
 refreshList();
 void renderMessage;

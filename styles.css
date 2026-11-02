@@ -18,6 +18,23 @@ html, body { height: 100%; margin: 0; }
   .main-area { width: auto; }
 }
 .main-area > header { flex-shrink: 0; }
+/* Safe-area insets (notch, Dynamic Island, rounded corners, home bar).
+   viewport-fit=cover lets the page extend under the notch, so the
+   chrome must be padded by the insets or text/buttons sit under the
+   Dynamic Island / corners. On devices without a notch the insets are
+   0, so these calcs change nothing on desktop. */
+.main-area > header { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); padding-left: calc(0.75rem + env(safe-area-inset-left, 0px)); padding-right: calc(0.75rem + env(safe-area-inset-right, 0px)); }
+.sidebar > div { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); padding-left: calc(0.75rem + env(safe-area-inset-left, 0px)); padding-right: calc(0.75rem + env(safe-area-inset-right, 0px)); padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); }
+.message-list { padding-left: calc(1rem + env(safe-area-inset-left, 0px)); padding-right: calc(1rem + env(safe-area-inset-right, 0px)); }
+#welcome, #diagnostics { padding-left: calc(1rem + env(safe-area-inset-left, 0px)); padding-right: calc(1rem + env(safe-area-inset-right, 0px)); }
+#composer { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); padding-left: calc(0.75rem + env(safe-area-inset-left, 0px)); padding-right: calc(0.75rem + env(safe-area-inset-right, 0px)); }
+/* Portrait lock overlay for phones in landscape. Hidden by default in
+   this stylesheet (not Bulma's is-hidden), so it can never show just
+   because Bulma failed to load. JS adds .portrait-lock-show only for
+   phone-sized landscape windows (see app.js). */
+#portrait-lock { display: none; position: fixed; inset: 0; z-index: 100; background: #252f3f; color: white; align-items: center; justify-content: center; text-align: center; padding: calc(2rem + env(safe-area-inset-top, 0px)) calc(1rem + env(safe-area-inset-right, 0px)) calc(2rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px)); }
+#portrait-lock.portrait-lock-show { display: flex; }
+#portrait-lock h2 { color: white; }
 .border-bottom { border-bottom: 1px solid #e5e5e5; }
 .border-top { border-top: 1px solid #e5e5e5; }
 .message-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
