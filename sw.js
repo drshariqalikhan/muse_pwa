@@ -1,6 +1,6 @@
 /* muse_pwa service worker — Step 1 app-shell cache only.
    API calls (Supabase, Edge Functions) are NEVER cached — network-only. */
-const CACHE = "muse-pwa-v5";
+const CACHE = "muse-pwa-v6";
 const SHELL = [
   "./",
   "./index.html",

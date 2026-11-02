@@ -41,10 +41,18 @@ html, body { height: 100%; margin: 0; }
 #thinking { color: #666; padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 16px calc(16px + env(safe-area-inset-left, 0px)); }
 
 /* Composer in the bottom toolbar. Toolbar-inner is flex; the form
-   fills it, textarea grows, Send stays teal (Framework7 primary). */
-#composer { display: flex; gap: 0.5rem; align-items: stretch; width: 100%; padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px)); box-sizing: border-box; }
-#message-input { flex: 1 1 auto; min-width: 0; resize: none; border: 1px solid #ccc; border-radius: 8px; padding: 8px; font: inherit; background: #fff; color: #000; }
-#send-btn { flex-shrink: 0; align-self: stretch; }
+   fills it, textarea grows, Send stays blue (Framework7 primary).
+   Framework7 sets button{width:100%} globally, so Send MUST be
+   overridden to width:auto here — without this, Send spans the whole
+   toolbar and squeezes the textarea to a ~20px strip (seen in the
+   first Framework7 test run, 2 Nov 2026). Bottom padding is 0 here
+   because the toolbar itself already adds safe-area-bottom plus its
+   own 16px iOS bottom padding; adding safe-area again double-counts
+   and leaves a ~40px gap on iPhones. */
+#composer { display: flex; gap: 0.5rem; align-items: stretch; width: 100%; padding: 0 calc(8px + env(safe-area-inset-right, 0px)) 0 calc(8px + env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+#message-input { flex: 1 1 auto; min-width: 0; width: auto; resize: none; border: 1px solid #ccc; border-radius: 8px; padding: 8px; font: inherit; background: #fff; color: #000; }
+#send-btn { width: auto !important; flex: 0 0 auto; align-self: stretch; }
+.example-row .button, .conv-row .button { width: auto; }
 
 .message-bubble { margin-bottom: 1rem; max-width: 85%; }
 .message-user { margin-left: auto; background: #eef3fc; border-radius: 12px; padding: 0.75rem; }
