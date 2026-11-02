@@ -153,7 +153,8 @@ const llmEnabledEl = document.getElementById("browser-llm-enabled");
 if (llmLoadBtn && llmStatusEl && llmEnabledEl) {
   llmLoadBtn.addEventListener("click", async () => {
     llmLoadBtn.disabled = true;
-    llmStatusEl.textContent = "Loading browser LLM… first load downloads the model, this can take a few minutes.";
+    llmLoadBtn.textContent = "Loading browser LLM…";
+    llmStatusEl.textContent = "Loading browser LLM… first load downloads the model, this can take a few minutes; a reload uses the cached model and is faster.";
     try {
       await loadBrowserLLM((text, progress) => {
         llmStatusEl.textContent = text + (progress != null ? " — " + Math.round(progress * 100) + "%" : "");
@@ -162,10 +163,16 @@ if (llmLoadBtn && llmStatusEl && llmEnabledEl) {
       llmEnabledEl.disabled = false;
       llmEnabledEl.checked = true;
       setBrowserLLMEnabled(true);
-      llmLoadBtn.textContent = "Browser LLM loaded";
+      // The button MUST stay enabled after a successful load: the
+      // old code disabled it permanently ("Browser LLM loaded"),
+      // so after the engine was disposed there was no way to load
+      // it again except refreshing the page. Now it becomes Reload.
+      llmLoadBtn.disabled = false;
+      llmLoadBtn.textContent = "Reload browser LLM";
     } catch (e) {
       llmStatusEl.textContent = "Browser LLM failed: " + (e && e.message ? e.message : "load failed");
       llmLoadBtn.disabled = false;
+      llmLoadBtn.textContent = "Load browser LLM";
     }
   });
   llmEnabledEl.addEventListener("change", () => {
