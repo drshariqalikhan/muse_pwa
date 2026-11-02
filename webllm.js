@@ -47,6 +47,19 @@ const PICO_SYSTEM_PROMPT =
   "in missing_fields. If any component is missing, set clarification_question to a single " +
   "question asking for the most important missing information. If nothing is missing, " +
   "clarification_question is null. " +
+  "Comparison rule: comparison is null unless the question explicitly names a comparator " +
+  "with a comparative phrase such as compared with, versus, vs, placebo, or control, or " +
+  "names another treatment as the thing being compared against. NEVER copy the question " +
+  "wording, or a question sentence, into comparison. A question sentence is not a comparator. " +
+  "Population rule: population is null if the current question does not state who the " +
+  "patients are, even if an earlier question in the history mentioned a population. " +
+  "Clarification rule: clarification_question must be a NEW question asking for missing " +
+  "information. It must NEVER restate or repeat the user's question. " +
+  "New-topic rule: a new question about a different intervention or outcome starts a NEW " +
+  "PICO. Do not carry population, intervention, comparison, or outcome from an earlier, " +
+  "unrelated question in the history into the new PICO, unless the user message is clearly " +
+  "answering a clarification question (for example, just a comparator name) or explicitly " +
+  "says same patient or same population. " +
   "If the conversation history contains a previous PICO JSON and the user is supplying " +
   "missing information, update that JSON with the new information and keep the previously " +
   "stated fields, instead of starting over. " +
@@ -167,10 +180,67 @@ export async function chatWithBrowserLLM(text, priorHistory) {
   const start = content.indexOf("{");
   const end = content.lastIndexOf("}");
   if (start < 0 || end <= start) return content;
+  let parsed;
   try {
-    return JSON.stringify(JSON.parse(content.slice(start, end + 1)), null, 2);
+    parsed = JSON.parse(content.slice(start, end + 1));
   } catch (e) {
     void e;
     return content;
   }
+  // Code validation, because a small model does not reliably hold
+  // the prompt rules on its own (seen 2 Nov 2026: comparison copied
+  // from the question wording, clarification restating the question,
+  // and a population carried over from an unrelated earlier question).
+  // These checks fix the mechanically detectable failures instead of
+  // trusting the model's missing_fields / clarification_question.
+  const picoFields = ["population", "intervention", "comparison", "outcome"];
+  // 1. A question sentence is never a comparator. Examples seen:
+  // "will apixaban reduce stroke risk in", "do statins cause headaches?"
+  if (typeof parsed.comparison === "string") {
+    const c = parsed.comparison.trim();
+    if (c.includes("?") || /^(do|does|will|can|is|are|should)\b/i.test(c) || /reduce stroke risk in$/i.test(c)) {
+      parsed.comparison = null;
+    }
+  }
+  // 2. missing_fields must exactly match the null fields.
+  const missing = picoFields.filter((f) => parsed[f] == null || parsed[f] === "");
+  picoFields.forEach((f) => {
+    if (parsed[f] == null || parsed[f] === "") parsed[f] = null;
+  });
+  parsed.missing_fields = missing;
+  // 3. Clarification must be a real question for missing information,
+  // never a restatement of the user's question, and null when complete.
+  const normalise = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const clarificationFor = (field) => {
+    if (field === "population") return "Who are the patients in this question?";
+    if (field === "intervention") return "What intervention are you asking about?";
+    if (field === "comparison") return "What is the intervention being compared with?";
+    if (field === "outcome") return "What outcome are you asking about?";
+    return "What information is missing from this question?";
+  };
+  if (missing.length === 0) {
+    parsed.clarification_question = null;
+  } else {
+    // Keep the model's clarification only if it is a real question
+    // and not just the user's question restated (normalise strips
+    // case/punctuation, so "Do statins cause headaches?" matches
+    // "do statins cause headaches"). Otherwise ask for the first
+    // missing field.
+    const q = typeof parsed.clarification_question === "string" ? parsed.clarification_question.trim() : "";
+    if (!q.endsWith("?") || normalise(q) === normalise(text)) {
+      parsed.clarification_question = clarificationFor(missing[0]);
+    }
+  }
+  return JSON.stringify(
+    {
+      population: parsed.population ?? null,
+      intervention: parsed.intervention ?? null,
+      comparison: parsed.comparison ?? null,
+      outcome: parsed.outcome ?? null,
+      missing_fields: parsed.missing_fields,
+      clarification_question: parsed.clarification_question,
+    },
+    null,
+    2
+  );
 }
