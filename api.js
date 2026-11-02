@@ -10,14 +10,14 @@ export async function listConversations() {
   return [];
 }
 
-export async function sendChatMessage(conversationId, message) {
+export async function sendChatMessage(conversationId, message, priorHistory) {
   // SIDE EXPERIMENT (webllm.js): if a browser LLM is loaded and the
   // user has enabled it, replies come from that on-device model.
   // This is not the planned Step 4–5 backend, and it never runs
   // unless the user loads the model and ticks the checkbox.
   if (isBrowserLLMActive()) {
     try {
-      const reply = await chatWithBrowserLLM(message);
+      const reply = await chatWithBrowserLLM(message, priorHistory);
       return {
         conversation_id: conversationId,
         reply: reply,

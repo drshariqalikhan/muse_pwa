@@ -54,6 +54,11 @@ function refreshList() {
 
 function openConversation(id) {
   state.currentConversationId = id;
+  // History reset: switching conversations does not restore old
+  // messages (Step 1 limitation), so the model's history must reset
+  // here too — otherwise a new conversation would inherit the
+  // previous conversation's context.
+  state.messages = [];
   const c = state.conversations.find((x) => x.id === id);
   titleEl.textContent = c ? c.title : "New chat";
   listEl.innerHTML = "";
@@ -90,6 +95,7 @@ function deleteConversation(id) {
     state.conversations = state.conversations.filter((x) => x.id !== id);
     if (id === state.currentConversationId) {
       state.currentConversationId = null;
+      state.messages = [];
       titleEl.textContent = "New chat";
       listEl.innerHTML = "";
       welcomeEl.classList.remove("is-hidden");

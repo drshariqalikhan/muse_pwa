@@ -47,6 +47,9 @@ const PICO_SYSTEM_PROMPT =
   "in missing_fields. If any component is missing, set clarification_question to a single " +
   "question asking for the most important missing information. If nothing is missing, " +
   "clarification_question is null. " +
+  "If the conversation history contains a previous PICO JSON and the user is supplying " +
+  "missing information, update that JSON with the new information and keep the previously " +
+  "stated fields, instead of starting over. " +
   "Example input: In adults with atrial fibrillation, does apixaban compared with warfarin reduce stroke? " +
   'Example output: {"population": "adults with atrial fibrillation", "intervention": "apixaban", ' +
   '"comparison": "warfarin", "outcome": "stroke", "missing_fields": [], "clarification_question": null}';
@@ -113,8 +116,25 @@ export async function loadBrowserLLM(onProgress) {
   }
 }
 
-export async function chatWithBrowserLLM(text) {
+// Chat history for the browser LLM (added 2 Nov 2026, after the
+// PICO clarification problem: without history, a follow-up answer
+// like "warfarin" meant nothing, because the model never saw the
+// original apixaban question). History is the prior messages of the
+// CURRENT conversation only, oldest first, each {role, content}
+// with role "user" or "model". It is capped to the last 10 prior
+// messages (5 exchanges) so a small 1B model is not swamped, and so
+// a long chat does not blow up the context. The current message is
+// appended after the history, never duplicated from it.
+const MAX_PRIOR_MESSAGES = 10;
+
+export async function chatWithBrowserLLM(text, priorHistory) {
   if (!engine) throw new Error("Browser LLM is not loaded yet");
+  const historyMessages = Array.isArray(priorHistory)
+    ? priorHistory.slice(-MAX_PRIOR_MESSAGES).map((m) => ({
+        role: m.role === "model" ? "assistant" : "user",
+        content: m.content,
+      }))
+    : [];
   let reply;
   try {
     reply = await engine.chat.completions.create({
@@ -123,6 +143,7 @@ export async function chatWithBrowserLLM(text) {
           role: "system",
           content: picoMode ? PICO_SYSTEM_PROMPT : "You are a helpful assistant. Answer concisely.",
         },
+        ...historyMessages,
         { role: "user", content: text },
       ],
     });

@@ -47,8 +47,17 @@ export async function handleSend(state, listEl, thinkingEl, sendBtn, inputEl) {
     document.getElementById("welcome").classList.add("is-hidden");
     inputEl.value = "";
     scrollToLatest(listEl, true);
-    const result = await sendChatMessage(state.currentConversationId, text);
+    // Chat history for the model: the prior messages of this
+    // conversation only (state.messages is reset on open/new
+    // conversation in app.js, and switching conversations does not
+    // restore old messages — Step 1 limitation — so history can
+    // never leak from another conversation). The current message
+    // is NOT in priorHistory; webllm.js appends it after history.
+    const priorHistory = Array.isArray(state.messages) ? [...state.messages] : [];
+    state.messages.push({ role: "user", content: text });
+    const result = await sendChatMessage(state.currentConversationId, text, priorHistory);
     renderMessage(listEl, "model", result.reply);
+    state.messages.push({ role: "model", content: result.reply });
     scrollToLatest(listEl, true);
   } catch (e) {
     renderMessage(listEl, "model", "Error: " + (e && e.message ? e.message : "send failed") + " — please try again.");
