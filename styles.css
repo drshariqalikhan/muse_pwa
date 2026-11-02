@@ -1,13 +1,22 @@
 /* muse_pwa chat-specific CSS only. Layout / buttons / inputs use Bulma. */
-html, body { height: 100%; }
-/* Fixed viewport height (100dvh so mobile browser chrome does not leave a
-   gap below the composer). The message list flexes to fill the remaining
-   space, so the composer is always pinned to the bottom — with no
-   max-height cap, which used to leave white space below it when the
-   message list was short (e.g. just after sending on mobile). */
-#app-layout { height: 100vh; height: 100dvh; overflow: hidden; }
+html, body { height: 100%; margin: 0; }
+/* Pin the composer to the bottom of the viewport, on every width.
+   Do NOT rely on Bulma's .columns display for this: Bulma stacks
+   .columns vertically on mobile (display:block), so #app-layout must
+   be a flex container in its own right, and .main-area must flex to
+   fill it. Otherwise the main column can end up only as tall as its
+   content (header + short message list + composer), leaving the
+   viewport's remaining height as white space below the composer —
+   exactly the gap seen after Send on mobile previews.
+   Height is given three ways on purpose: 100% (inherits the viewport
+   via html/body), 100vh, and 100dvh (mobile browser chrome). */
+#app-layout { display: flex; flex-direction: column; height: 100%; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; overflow: hidden; margin: 0 !important; }
 .sidebar { border-right: 1px solid #e5e5e5; height: 100vh; height: 100dvh; overflow-y: auto; }
-.main-area { display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 0; }
+.main-area { display: flex; flex-direction: column; flex: 1 1 auto; width: 100%; height: 100%; height: 100vh; height: 100dvh; min-height: 0; }
+@media (min-width: 769px) {
+  #app-layout { flex-direction: row; }
+  .main-area { width: auto; }
+}
 .main-area > header { flex-shrink: 0; }
 .border-bottom { border-bottom: 1px solid #e5e5e5; }
 .border-top { border-top: 1px solid #e5e5e5; }

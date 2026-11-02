@@ -1,6 +1,6 @@
 /* muse_pwa service worker — Step 1 app-shell cache only.
    API calls (Supabase, Edge Functions) are NEVER cached — network-only. */
-const CACHE = "muse-pwa-v2";
+const CACHE = "muse-pwa-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -32,6 +32,23 @@ self.addEventListener("fetch", (event) => {
   // Never cache API calls
   if (url.pathname.includes("/functions/") || url.hostname.includes("supabase.co")) {
     event.respondWith(fetch(event.request));
+    return;
+  }
+  // App CSS/JS: network-first, cache as fallback. Cache-first here was
+  // the cause of stale layouts in embedded previews (e.g. Responsively):
+  // a preview could keep serving an old styles.css for many reloads,
+  // so a fixed layout still looked broken. Network-first means a reload
+  // always picks up the current file when the server is reachable.
+  if (url.pathname.endsWith(".css") || url.pathname.endsWith(".js")) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(event.request, copy));
+          return res;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
   event.respondWith(
