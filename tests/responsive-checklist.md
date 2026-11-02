@@ -19,9 +19,14 @@ Two routes, in this order:
 2. **Visual (real layout, on the PC):** Responsively 2.0 beta via the
    pc_agent MCP bridge, at `http://127.0.0.1:8000/`. This is the route that
    proves layout, because Bulma loads on the PC. **One device at a time:**
-   set only one active device, test it fully, then move to the next.
-   Do not test all devices in one window — a column of previews shrinks
-   each view and can scroll a device out of frame. Do not assume
+   use Responsively's **Focus** button (bottom toolbar, between Column
+   and Canvas) — it shows one device centred at 100% with tabs on top
+   to switch devices, while keeping the full active set. Do NOT achieve
+   this by setting only one active device. Do not test all devices in
+   one window — a column of previews shrinks each view and can scroll
+   a device out of frame. Note: clicking Focus again toggles to Canvas
+   (all devices as draggable frames); click again to return to Focus,
+   and check the bottom-toolbar highlight before testing. Do not assume
    Responsively mirroring covers all previews — click/send on each device
    individually.
 
